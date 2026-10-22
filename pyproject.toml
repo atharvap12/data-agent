@@ -1,0 +1,13 @@
+[project]
+name = "data-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "dotenv>=0.9.9",
+    "langchain>=1.4.6",
+    "langchain-anthropic>=1.7.6",
+    "langgraph>=1.2.16",
+    "pydantic>=2.14.1",
+]
