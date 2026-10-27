@@ -16,8 +16,9 @@ DB_CONFIG = {
     "host": os.environ['host'],
     "port": int(os.environ['port']),
     "database": os.environ['database'],
-    "user": os.environ['user'],
-    "password": os.environ['password'],
+    # Loading needs write access, so use the owner role, not the read-only `user`.
+    "user": os.environ['admin_user'],
+    "password": os.environ['admin_password'],
 }
 
 CSV_DIR = "data"

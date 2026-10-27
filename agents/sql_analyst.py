@@ -9,5 +9,12 @@ from models.schema import AgentSchema
 # -------------------------------------------------AI Agent for SQL Query Generation-------------------------------------------------
 
 def curate_question(state: AgentSchema) -> AgentSchema:
+    user_question = state.user_ques #we can't access it like state['user_question'] because state is a pydantic model and not a dictionary.
+    llm = pick_llm("simple") 
+    curated_question = llm.invoke(f"Curate the following question for SQL query generation: {user_question}")
+    state.curated_ques = curated_question
+    return state
 
-    user_question = state.user_ques #we can't access it like state['user_question'] because state is a pydantic model and not a dictionary. 
+def prepare_prompt_query_context(state: AgentSchema) -> AgentSchema:
+    curated_question = state.curated_ques
+    pass
