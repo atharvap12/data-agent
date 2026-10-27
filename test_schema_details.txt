@@ -1,0 +1,123 @@
+Database Schema: public
+
+Table: users
+  Column: user_id, Data Type: integer, Nullable: NO
+    Constraints: users_pkey: PRIMARY KEY (user_id)
+    Indexes: users_pkey (UNIQUE USING btree (user_id))
+  Column: first_name, Data Type: character varying(100), Nullable: NO
+  Column: last_name, Data Type: character varying(100), Nullable: NO
+  Column: email, Data Type: character varying(255), Nullable: NO
+    Constraints: users_email_key: UNIQUE (email)
+    Indexes: users_email_key (UNIQUE USING btree (email))
+  Column: phone, Data Type: character varying(50), Nullable: YES
+  Column: city, Data Type: character varying(100), Nullable: YES
+  Column: province, Data Type: character varying(50), Nullable: YES
+  Column: user_type, Data Type: character varying(20), Nullable: NO
+  Column: signup_date, Data Type: date, Nullable: YES
+  Column: is_active, Data Type: boolean, Nullable: YES
+  Sample Data:
+    (1, 'Danielle', 'Johnson', 'user1@example.com', '+13567729816', 'Halifax', 'NS', 'rider', datetime.date(2025, 5, 25), True)
+    (2, 'Joshua', 'Walker', 'user2@example.com', '+19222900764', 'Vancouver', 'BC', 'rider', datetime.date(2025, 5, 4), True)
+    (3, 'Jill', 'Rhodes', 'user3@example.com', '+12900432998', 'Winnipeg', 'MB', 'rider', datetime.date(2026, 5, 24), True)
+    (4, 'Patricia', 'Miller', 'user4@example.com', '+19812397600', 'Montreal', 'QC', 'rider', datetime.date(2026, 5, 21), True)
+    (5, 'Robert', 'Johnson', 'user5@example.com', '+16892737056', 'Winnipeg', 'MB', 'rider', datetime.date(2024, 4, 15), True)
+
+Table: vehicles
+  Column: vehicle_id, Data Type: integer, Nullable: NO
+    Constraints: vehicles_pkey: PRIMARY KEY (vehicle_id)
+    Indexes: vehicles_pkey (UNIQUE USING btree (vehicle_id))
+  Column: driver_id, Data Type: integer, Nullable: NO
+    Constraints: fk_vehicle_driver: FOREIGN KEY (driver_id) REFERENCES users(user_id)
+    Indexes: idx_vehicles_driver_id (USING btree (driver_id))
+  Column: make, Data Type: character varying(50), Nullable: YES
+  Column: model, Data Type: character varying(50), Nullable: YES
+  Column: year, Data Type: integer, Nullable: YES
+  Column: license_plate, Data Type: character varying(20), Nullable: YES
+    Constraints: vehicles_license_plate_key: UNIQUE (license_plate)
+    Indexes: vehicles_license_plate_key (UNIQUE USING btree (license_plate))
+  Column: color, Data Type: character varying(30), Nullable: YES
+  Column: is_active, Data Type: boolean, Nullable: YES
+  Sample Data:
+    (1, 7, 'Honda', 'CR-V', 2024, 'OP331', 'Grey', True)
+    (2, 10, 'Hyundai', 'Sonata', 2026, 'WK520', 'Black', True)
+    (3, 19, 'Ford', 'Fusion', 2022, 'LI224', 'Black', True)
+    (4, 25, 'Toyota', 'RAV4', 2015, 'FN542', 'Black', True)
+    (5, 26, 'Hyundai', 'Sonata', 2016, 'CS875', 'Grey', True)
+
+Table: rides
+  Column: ride_id, Data Type: integer, Nullable: NO
+    Constraints: rides_pkey: PRIMARY KEY (ride_id)
+    Indexes: rides_pkey (UNIQUE USING btree (ride_id))
+  Column: rider_id, Data Type: integer, Nullable: NO
+    Constraints: fk_ride_rider: FOREIGN KEY (rider_id) REFERENCES users(user_id)
+    Indexes: idx_rides_rider_id (USING btree (rider_id))
+  Column: driver_id, Data Type: integer, Nullable: NO
+    Constraints: fk_ride_driver: FOREIGN KEY (driver_id) REFERENCES users(user_id)
+    Indexes: idx_rides_driver_id (USING btree (driver_id))
+  Column: requested_at, Data Type: timestamp without time zone, Nullable: YES
+    Indexes: idx_rides_requested_at (USING btree (requested_at))
+  Column: pickup_time, Data Type: timestamp without time zone, Nullable: YES
+  Column: dropoff_time, Data Type: timestamp without time zone, Nullable: YES
+  Column: pickup_latitude, Data Type: numeric, Nullable: YES
+  Column: pickup_longitude, Data Type: numeric, Nullable: YES
+  Column: dropoff_latitude, Data Type: numeric, Nullable: YES
+  Column: dropoff_longitude, Data Type: numeric, Nullable: YES
+  Column: distance_km, Data Type: numeric, Nullable: YES
+  Column: fare, Data Type: numeric, Nullable: YES
+  Column: surge_multiplier, Data Type: numeric, Nullable: YES
+  Column: status, Data Type: character varying(30), Nullable: YES
+    Indexes: idx_rides_status (USING btree (status))
+  Column: cancellation_reason, Data Type: character varying(100), Nullable: YES
+  Sample Data:
+    (1, 6166, 7514, datetime.datetime(2026, 2, 27, 20, 13, 30), None, None, Decimal('44.229291'), Decimal('-63.543162'), Decimal('44.496423'), Decimal('-67.980735'), Decimal('0.00'), Decimal('0.00'), Decimal('1.00'), 'cancelled', 'driver_cancelled')
+    (2, 5074, 4936, datetime.datetime(2025, 12, 26, 8, 26, 37), datetime.datetime(2025, 12, 26, 8, 34, 37), datetime.datetime(2025, 12, 26, 8, 59, 37), Decimal('43.881270'), Decimal('-70.083206'), Decimal('43.410488'), Decimal('-70.560855'), Decimal('13.16'), Decimal('52.17'), Decimal('1.50'), 'completed', None)
+    (3, 2969, 5849, datetime.datetime(2025, 7, 3, 7, 58, 26), datetime.datetime(2025, 7, 3, 8, 2, 26), datetime.datetime(2025, 7, 3, 9, 2, 26), Decimal('43.856247'), Decimal('-75.945737'), Decimal('44.133943'), Decimal('-70.313959'), Decimal('26.59'), Decimal('70.53'), Decimal('1.00'), 'completed', None)
+    (4, 7932, 1030, datetime.datetime(2025, 3, 1, 4, 50, 4), datetime.datetime(2025, 3, 1, 5, 3, 4), datetime.datetime(2025, 3, 1, 5, 40, 4), Decimal('44.360329'), Decimal('-64.339011'), Decimal('44.395041'), Decimal('-77.436515'), Decimal('11.35'), Decimal('42.98'), Decimal('1.20'), 'completed', None)
+    (5, 2468, 8856, datetime.datetime(2026, 7, 9, 7, 45, 41), datetime.datetime(2026, 7, 9, 7, 51, 41), datetime.datetime(2026, 7, 9, 8, 36, 41), Decimal('43.696089'), Decimal('-66.938775'), Decimal('44.669130'), Decimal('-74.876163'), Decimal('23.35'), Decimal('59.61'), Decimal('1.00'), 'completed', None)
+
+Table: payments
+  Column: payment_id, Data Type: integer, Nullable: NO
+    Constraints: payments_pkey: PRIMARY KEY (payment_id)
+    Indexes: payments_pkey (UNIQUE USING btree (payment_id))
+  Column: ride_id, Data Type: integer, Nullable: NO
+    Constraints: fk_payment_ride: FOREIGN KEY (ride_id) REFERENCES rides(ride_id)
+    Indexes: idx_payments_ride_id (USING btree (ride_id))
+  Column: user_id, Data Type: integer, Nullable: NO
+    Constraints: fk_payment_user: FOREIGN KEY (user_id) REFERENCES users(user_id)
+    Indexes: idx_payments_user_id (USING btree (user_id))
+  Column: amount, Data Type: numeric, Nullable: YES
+  Column: payment_method, Data Type: character varying(50), Nullable: YES
+  Column: payment_status, Data Type: character varying(30), Nullable: YES
+  Column: transaction_id, Data Type: character varying(100), Nullable: YES
+    Constraints: payments_transaction_id_key: UNIQUE (transaction_id)
+    Indexes: payments_transaction_id_key (UNIQUE USING btree (transaction_id))
+  Column: payment_time, Data Type: timestamp without time zone, Nullable: YES
+  Sample Data:
+    (1, 13960, 6945, Decimal('16.07'), 'credit_card', 'completed', 'TXN-00000001', datetime.datetime(2026, 4, 7, 15, 15, 52))
+    (2, 1187, 5541, Decimal('47.01'), 'debit_card', 'completed', 'TXN-00000002', datetime.datetime(2025, 10, 7, 14, 56, 33))
+    (3, 3719, 8738, Decimal('74.77'), 'paypal', 'completed', 'TXN-00000003', datetime.datetime(2026, 1, 14, 16, 19, 32))
+    (4, 15623, 5455, Decimal('66.79'), 'apple_pay', 'completed', 'TXN-00000004', datetime.datetime(2026, 3, 20, 8, 37, 33))
+    (5, 15032, 1129, Decimal('30.85'), 'paypal', 'completed', 'TXN-00000005', datetime.datetime(2026, 4, 29, 18, 56, 19))
+
+Table: ratings
+  Column: rating_id, Data Type: integer, Nullable: NO
+    Constraints: ratings_pkey: PRIMARY KEY (rating_id)
+    Indexes: ratings_pkey (UNIQUE USING btree (rating_id))
+  Column: ride_id, Data Type: integer, Nullable: NO
+    Constraints: fk_rating_ride: FOREIGN KEY (ride_id) REFERENCES rides(ride_id)
+    Indexes: idx_ratings_ride_id (USING btree (ride_id))
+  Column: rider_id, Data Type: integer, Nullable: NO
+    Constraints: fk_rating_rider: FOREIGN KEY (rider_id) REFERENCES users(user_id)
+  Column: driver_id, Data Type: integer, Nullable: NO
+    Constraints: fk_rating_driver: FOREIGN KEY (driver_id) REFERENCES users(user_id)
+    Indexes: idx_ratings_driver_id (USING btree (driver_id))
+  Column: rating, Data Type: integer, Nullable: YES
+    Constraints: chk_rating: CHECK (((rating >= 1) AND (rating <= 5)))
+  Column: comment, Data Type: text, Nullable: YES
+  Column: rated_at, Data Type: timestamp without time zone, Nullable: YES
+  Sample Data:
+    (1, 13870, 5833, 7667, 5, 'Could have been better', datetime.datetime(2025, 9, 9, 13, 41, 28))
+    (2, 2279, 1026, 3147, 4, 'Could have been better', datetime.datetime(2026, 6, 2, 23, 39, 31))
+    (3, 19701, 960, 2267, 5, 'Great ride', datetime.datetime(2026, 7, 23, 6, 31, 59))
+    (4, 860, 2999, 4679, 3, 'Average experience', datetime.datetime(2026, 4, 23, 4, 57, 28))
+    (5, 7868, 4277, 8698, 5, 'Average experience', datetime.datetime(2025, 10, 9, 6, 15, 35))

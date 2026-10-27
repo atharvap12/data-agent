@@ -24,5 +24,5 @@ def pick_llm(level : str):
 
     return llm
 
-llm_obj = pick_llm("simple")  # Example usage, you can change the level as needed
-print(llm_obj.invoke("What is the capital of France?"))  # Example invocation, you can change the prompt as needed
+# llm_obj = pick_llm("simple")  # Example usage, you can change the level as needed
+# print(llm_obj.invoke("What is the capital of France?"))  # Example invocation, you can change the prompt as needed
