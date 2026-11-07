@@ -18,7 +18,7 @@ def curate_ques(state: AgentSchema) -> AgentSchema:
 
     llm = pick_llm("simple")  # Pick the appropriate LLM based on the level of the question
 
-    response = llm.invoke(f"Curate the following question: {user_question}").text
+    response = llm.invoke(f"Rewrite the following question to be clear and unambiguous for an SQL analyst. Return only the rewritten question, nothing else: {user_question}").text
 
     state.curated_ques = response
     state.messages = state.messages + [HumanMessage(content=f"{response}")]  # Append the curated question to the messages list

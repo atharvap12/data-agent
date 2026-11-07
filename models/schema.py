@@ -1,13 +1,28 @@
 from pydantic import BaseModel, Field
-from typing import Annotated, Literal
-from operator import add
+from typing import Literal
 
 
 # schema is a dictionary like object that is passed through
 # all the nodes of a Stateful LangChain agent. The type enforcement is mostly done using pydantic models.
 # pydantic is chosen over other options like typedict, marshmallow, etc. because of its stricter type enforcement over its options.
 class AgentSchema(BaseModel):
-    messages : Annotated[list, add] = Field(..., description="A list of messages to be processed by the agent") #Annotated[list, add] is necessary. You will get error if a list is not Annotated with an operator like add.
+    # Why `messages` is a plain list (no `Annotated[list, add]` reducer):
+    #
+    # BEFORE: `messages` was `Annotated[list, add]`. With a reducer, LangGraph takes
+    # whatever a node returns for `messages` and ADDS it to the list it already has.
+    # But our nodes return the whole state (`return state`), and that state already
+    # contains the full history. So after every node LangGraph did:
+    #     old history + (old history + new message)
+    # and the messages got duplicated, e.g. the user's question appeared twice.
+    # Even nodes that never touch `messages` (like the router) caused duplicates,
+    # because they still send the full list back.
+    #
+    # NOW: there is no reducer, so whatever list a node returns simply REPLACES the
+    # old one. Each node adds its new message itself, like:
+    #     state.messages = state.messages + [new_message]
+    # A reducer is only needed when two nodes run in parallel and write to the same
+    # field at the same time. Our graphs run one node after another, so we don't need it.
+    messages : list = Field(..., description="A list of messages to be processed by the agent")
     user_ques : str = Field(..., description="The original question asked by the user that needs to be processed by the agent")
     curated_ques : str = Field(..., description="A curated question to be processed by the agent")
     prompt_query_context : str = Field(..., description="A detailed prompt with SQL DB context that will help the agent to generate a SQL query")
@@ -21,3 +36,17 @@ class AgentSchema(BaseModel):
 class JudgeSchema(BaseModel):
     answer : Literal["Yes","No"] = Field(..., description="Indicates whether the generated SQL query is safe to execute or not")
     comments : str = Field(..., description="Additional comments or feedback from the judge regarding the SQL query")
+
+
+class ETLAgentSchema(BaseModel):
+    # Plain list on purpose (no `add` reducer). See the comment on AgentSchema.messages.
+    messages : list = Field(..., description="List of messages to be processed by the ETL agent")
+
+class RouterSchema(BaseModel):
+    answer: Literal["sql","etl"] = Field(..., description="Indicates whether the user's question is related to SQL or ETL operations")
+    comments: str = Field(..., description="Additional comments or feedback regarding the classification of the user's question")
+
+class DataAgentSchema(BaseModel):
+    # Plain list on purpose (no `add` reducer). See the comment on AgentSchema.messages.
+    messages : list = Field(..., description="List of messages to be processed by the Data agent")
+    route_response : str = Field(..., description="The response from the router indicating whether to route to SQL or ETL operations")
