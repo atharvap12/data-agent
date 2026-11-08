@@ -1,8 +1,11 @@
 import os
 import requests
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 
-load_dotenv()  # So MARKETSTACK_API_KEY from .env is available
+# Load MARKETSTACK_API_KEY from the project's .env, found by path so it also works
+# when the app is started from a different folder
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env"))
 
 
 #------------------------------------ API ENDPOINTS ------------------------------------#
@@ -63,6 +66,27 @@ def resolve_source(source: str) -> tuple[str, dict]:
         entry = API_SOURCES[key]
         return entry["url"], entry["params"]()
     return source.strip(), {}
+
+
+def source_name(source: str) -> str:
+    """
+    Short name of a source, used in output file names (e.g. "marketstack_20261108_101500.csv").
+
+    - A registered name ("pokemon", "marketstack") is returned as is.
+    - A URL that matches a registered source's URL returns that source's name,
+      so "https://pokeapi.co/api/v2/pokemon" gives "pokemon".
+    - Any other URL returns its host name, e.g. "api.example.com" gives "example".
+    """
+    key = source.strip().lower()
+    if key in API_SOURCES:
+        return key
+    url = key.split("?")[0].rstrip("/")
+    for name, entry in API_SOURCES.items():
+        if url == entry["url"].lower().rstrip("/"):
+            return name
+    host = urlparse(url).hostname or "data"
+    parts = [p for p in host.split(".") if p not in ("www", "api")]
+    return parts[0] if parts else "data"
 
 
 #------------------------------------ UNIVERSAL API CALL ------------------------------------#

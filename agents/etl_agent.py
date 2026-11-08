@@ -5,7 +5,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from utils.llm_pick import pick_llm
-from utils.etl_tools import ETLTools
+from utils.etl_tools import ETLTools, PROJECT_ROOT, TRANSFORM_DIR, new_file_path, source_from_file
 from models.schema import ETLAgentSchema
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.graph import StateGraph, START, END
@@ -20,10 +20,11 @@ logger = get_logger("etl_agent")
 
 
 @tool
-def extract_load_tool(source:str, output_folder:str, format:str) -> str:
+def extract_load_tool(source:str, format:str) -> str:
     """
-    This tool extracts the data from an API and loads it into the
-    desired location (output_folder).
+    This tool extracts the data from an API and saves it as a new file in the
+    data/extract folder, named <source>_<timestamp>.<format>. The folder is fixed
+    and cannot be changed; the tool returns the full path of the new file.
 
     Args:
         source (str): Either a named data source or a full API URL.
@@ -35,36 +36,47 @@ def extract_load_tool(source:str, output_folder:str, format:str) -> str:
               exchange and date.
             If the user mentions stocks, stock prices, Marketstack, AAPL or MSFT,
             use "marketstack". If the user mentions Pokemon or PokeAPI, use "pokemon".
-        output_folder (str): The folder where the extracted data will be saved.
         format (str): The format in which to save the extracted data (csv, json, parquet).
 
     Returns:
         str: A message indicating the success or failure of the operation.
 
     """
-    logger.info(f"[extract_load_tool] Extracting from '{source}' → folder '{output_folder}' as {format}")
+    logger.info(f"[extract_load_tool] Extracting from '{source}' → data/extract as {format}")
     etl_tools = ETLTools()
-    result = etl_tools.extract_load(source, output_folder, format)
+    result = etl_tools.extract_load(source, format)
     logger.info(f"[extract_load_tool] Result: {result}")
     return result
 
 
 @tool
-def transform_load_tool(input_file_path:str,output_folder:str,output_format:str, user_question:str) -> str:
+def transform_load_tool(input_file_path:str, output_format:str, user_question:str) -> str:
     """
-    This tool transforms the data from the specified file and loads it into the
-    desired location (output_folder).
+    This tool transforms the data from the specified file and saves the result as a
+    new file in the data/transform folder, named <source>_<timestamp>.<format>.
+    The folder is fixed and cannot be changed; the tool returns the full path of the new file.
 
     Args:
         input_file_path (str): The path to the file containing the data to be transformed.
-        output_folder (str): The folder where the transformed data will be saved.
         output_format (str): The format in which to save the transformed data (csv, json, parquet).
     
     Returns:
         str: A message indicating the success or failure of the operation.
 
     """
-    logger.info(f"[transform_load_tool] Transforming '{input_file_path}' → folder '{output_folder}' as {output_format}")
+    if output_format not in ("csv", "json", "parquet"):
+        return f"Unsupported output format: {output_format}"
+
+    # Absolute paths, so the generated code works no matter where the app was started from
+    input_file_path = os.path.join(PROJECT_ROOT, input_file_path)
+
+    # Always a new file: <source>_<timestamp>.<format>. The source comes from the
+    # input file name, so transforming marketstack_..._.csv gives marketstack_<now>.csv.
+    # We choose the exact path here, instead of letting the LLM pick a name,
+    # so an old file is never overwritten.
+    output_file_path = new_file_path(TRANSFORM_DIR, source_from_file(input_file_path), output_format)
+
+    logger.info(f"[transform_load_tool] Transforming '{input_file_path}' → '{output_file_path}'")
     logger.info(f"[transform_load_tool] Transformation asked for: {user_question}")
 
     etl_tools = ETLTools()
@@ -82,7 +94,10 @@ def transform_load_tool(input_file_path:str,output_folder:str,output_format:str,
             Don't write anything else than Pandas Code. \n
             
             Create the Pandas Dataframe from the data stored in the file : {input_file_path} and then 
-            write the code to transform and save the data at {output_folder}.
+            write the code to transform the data and save the result to exactly this file
+            (use this path as is, do not change the folder or the file name): {output_file_path}
+            Save it in {output_format} format (for json use orient="records", lines=True; for csv and parquet use index=False).
+            Do not write any other files and do not overwrite the input file.
             Here's the user's question: {user_question}\n
             Here's the context of the data you will be analyzing: {top_3_rows}\n
 
@@ -115,10 +130,16 @@ def transform_load_tool(input_file_path:str,output_folder:str,output_format:str,
 
     if results.startswith("Failed"):
         logger.error(f"[transform_load_tool] Code execution: {results}")
-    else:
-        logger.info(f"[transform_load_tool] Code execution: {results}")
+        return f"The transformation failed. \n\n Pandas Code Executed: \n {pandas_code} \n\n Execution Result: \n {results}"
 
-    return f"The data is transformed and saved at {output_folder} in {output_format} format. \n\n Pandas Code Executed: \n {pandas_code} \n\n Execution Result: \n {results}"
+    # The code ran, but make sure it really wrote the file we asked for
+    if not os.path.exists(output_file_path):
+        logger.error(f"[transform_load_tool] Code ran but did not create '{output_file_path}'")
+        return f"The code ran but did not save the result to {output_file_path}. \n\n Pandas Code Executed: \n {pandas_code}"
+
+    logger.info(f"[transform_load_tool] Code execution: {results} Saved to '{output_file_path}'")
+
+    return f"The data is transformed and saved to {output_file_path}. \n\n Pandas Code Executed: \n {pandas_code} \n\n Execution Result: \n {results}"
 
 
 # Toolkit 
