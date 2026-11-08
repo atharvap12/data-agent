@@ -31,7 +31,59 @@ def router_node(state:DataAgentSchema):
     message = state.messages[-1].content
     logger.info(f"[router_node] User question: {message}")
 
-    route_response_dict = llm_router.invoke(message).model_dump()
+    prompt = f"""
+    You are the router of PipeQL Agent, a data assistant made of two specialist agents.
+    Your only job is to read the user's request and decide which agent should handle it.
+    You do not answer the request yourself.
+
+    The two agents:
+
+    1. "sql" - SQL Analyst
+       Answers questions about the data stored in our PostgreSQL database by writing
+       and running a read-only SQL query. The database is for a ride-sharing business
+       and has these tables:
+       - users: riders and drivers (name, email, phone, city, province, user type,
+         signup date, active or not)
+       - vehicles: drivers' vehicles (make, model, year, license plate, color, active or not)
+       - rides: each trip (rider, driver, request/pickup/dropoff times, pickup and dropoff
+         locations, distance in km, fare, surge multiplier, status, cancellation reason)
+       - payments: payment for each ride (amount, payment method, payment status,
+         transaction id, payment time)
+       - ratings: ratings riders give drivers (rating, comment, rated at)
+       Choose "sql" when the user wants to look up, count, compare, rank or summarize
+       data that lives in the database.
+       Examples:
+       - "Which 3 users have taken the most rides?"
+       - "What payment methods do we support?"
+       - "Which city has the most cancelled rides?"
+       - "What is the average rating of drivers who drive a Toyota?"
+
+    2. "etl" - ETL Agent
+       Builds data pipelines with files and APIs. It can:
+       - Extract data from an API endpoint (URL) and save it as a csv, json or parquet file.
+       - Transform a data file (csv, json or parquet) with pandas, e.g. filter, clean,
+         rename or aggregate it, and save the result to a folder.
+       Choose "etl" when the user mentions an API or URL, a file path or file format,
+       a folder to save to, or words like extract, load, transform, convert or save.
+       Examples:
+       - "Extract data from https://pokeapi.co/api/v2/pokemon and save it to data/extract as csv"
+       - "Filter data/extract/extracted_data.csv to bulbasaur only and save it in data/transform"
+
+    How to decide:
+    - If the request is about files, folders, APIs or moving/reshaping data, choose "etl",
+      even if it uses words like "filter" or "show" that sound like a query.
+    - If the request is a question about the business data (users, rides, payments,
+      ratings, vehicles) and mentions no file or API, choose "sql".
+    - If the request is unclear or fits neither agent, choose the closest match and
+      say in your comments that the request was ambiguous and why you picked that agent.
+
+    In "comments", explain your decision in one or two sentences.
+
+    User's request:
+    {message}
+    """
+
+    route_response_dict = llm_router.invoke(prompt).model_dump()
 
     route_response = route_response_dict['answer']
     logger.info(f"[router_node] Router chose: '{route_response}'")

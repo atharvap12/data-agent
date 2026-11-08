@@ -43,8 +43,8 @@ class ETLAgentSchema(BaseModel):
     messages : list = Field(..., description="List of messages to be processed by the ETL agent")
 
 class RouterSchema(BaseModel):
-    answer: Literal["sql","etl"] = Field(..., description="Indicates whether the user's question is related to SQL or ETL operations")
-    comments: str = Field(..., description="Additional comments or feedback regarding the classification of the user's question")
+    answer: Literal["sql","etl"] = Field(..., description="Which agent should handle the request: 'sql' for questions about data in the PostgreSQL database, 'etl' for extracting from APIs or transforming/saving data files")
+    comments: str = Field(..., description="One or two sentences explaining why this agent was chosen, including whether the request was ambiguous")
 
 class DataAgentSchema(BaseModel):
     # Plain list on purpose (no `add` reducer). See the comment on AgentSchema.messages.
