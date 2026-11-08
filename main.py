@@ -141,10 +141,7 @@ class Spinner:
         sys.stdout.flush()
 
     def __enter__(self):
-        # Start the background thread. From here on, the animation runs on its own
-        # while the main thread continues into the body of the `with` block.
-        # (Only in a real terminal; when output is piped to a file, an animation
-        # would just fill the file with junk frames.)
+        # Animate only in a real terminal; piped output would fill with junk frames.
         if USE_COLOR:
             self._thread.start()
         return self

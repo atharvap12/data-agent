@@ -171,15 +171,17 @@ class DatabaseUtil:
 
 
 
-obj = DatabaseUtil({
-    "host": os.environ['host'],
-    "database": os.environ['database'],
-    "user": os.environ['user'],
-    "password": os.environ['password'],
-    "port": int(os.environ['port'])
-})
+# Manual check: dump the public schema to a file. Runs only when this file is executed directly.
+if __name__ == "__main__":
+    obj = DatabaseUtil({
+        "host": os.environ['host'],
+        "database": os.environ['database'],
+        "user": os.environ['user'],
+        "password": os.environ['password'],
+        "port": int(os.environ['port'])
+    })
 
-result = obj.schema_details("public")
+    result = obj.schema_details("public")
 
-with open("test_schema_details.txt", "w") as f:
-    f.write(result)
+    with open("test_schema_details.txt", "w") as f:
+        f.write(result)

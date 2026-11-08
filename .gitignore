@@ -12,3 +12,6 @@ wheels/
 
 # Logs
 logs/
+
+# Local test prompts
+test_prompts.txt

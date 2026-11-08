@@ -6,22 +6,8 @@ from typing import Literal
 # all the nodes of a Stateful LangChain agent. The type enforcement is mostly done using pydantic models.
 # pydantic is chosen over other options like typedict, marshmallow, etc. because of its stricter type enforcement over its options.
 class AgentSchema(BaseModel):
-    # Why `messages` is a plain list (no `Annotated[list, add]` reducer):
-    #
-    # BEFORE: `messages` was `Annotated[list, add]`. With a reducer, LangGraph takes
-    # whatever a node returns for `messages` and ADDS it to the list it already has.
-    # But our nodes return the whole state (`return state`), and that state already
-    # contains the full history. So after every node LangGraph did:
-    #     old history + (old history + new message)
-    # and the messages got duplicated, e.g. the user's question appeared twice.
-    # Even nodes that never touch `messages` (like the router) caused duplicates,
-    # because they still send the full list back.
-    #
-    # NOW: there is no reducer, so whatever list a node returns simply REPLACES the
-    # old one. Each node adds its new message itself, like:
-    #     state.messages = state.messages + [new_message]
-    # A reducer is only needed when two nodes run in parallel and write to the same
-    # field at the same time. Our graphs run one node after another, so we don't need it.
+    # Plain list, no `add` reducer: nodes return the full state, so a reducer duplicated history.
+    # Nodes append themselves (state.messages + [msg]); graphs are sequential, so no reducer needed.
     messages : list = Field(..., description="A list of messages to be processed by the agent")
     user_ques : str = Field(..., description="The original question asked by the user that needs to be processed by the agent")
     curated_ques : str = Field(..., description="A curated question to be processed by the agent")

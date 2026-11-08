@@ -21,15 +21,8 @@ MARKETSTACK_EOD_URL = "https://api.apilayer.net/marketstack/v2/eod"
 
 #------------------------------------ NAMED SOURCES ------------------------------------#
 
-# The ETL agent can ask for a source by name (e.g. "marketstack") instead of a URL.
-# This keeps API keys out of the LLM prompt: the LLM only sees the name, and the
-# key is added here from the environment.
-#
-# Each source has:
-#   url     - the endpoint to call
-#   params  - query parameters sent with the request (a function, so the API key
-#             is read from the environment at call time, not at import time)
-#   description - shown to the LLM so it knows what each source contains
+# Sources the ETL agent can request by name, so API keys stay out of the LLM prompt.
+# `params` is a function so the key is read from the environment at call time.
 API_SOURCES = {
     "pokemon": {
         "url": POKEMON_API_URL,

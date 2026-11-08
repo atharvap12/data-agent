@@ -70,10 +70,8 @@ def transform_load_tool(input_file_path:str, output_format:str, user_question:st
     # Absolute paths, so the generated code works no matter where the app was started from
     input_file_path = os.path.join(PROJECT_ROOT, input_file_path)
 
-    # Always a new file: <source>_<timestamp>.<format>. The source comes from the
-    # input file name, so transforming marketstack_..._.csv gives marketstack_<now>.csv.
-    # We choose the exact path here, instead of letting the LLM pick a name,
-    # so an old file is never overwritten.
+    # Always a new file (<source>_<timestamp>.<format>), chosen here rather than by the LLM
+    # so an existing file is never overwritten.
     output_file_path = new_file_path(TRANSFORM_DIR, source_from_file(input_file_path), output_format)
 
     logger.info(f"[transform_load_tool] Transforming '{input_file_path}' → '{output_file_path}'")
@@ -105,22 +103,8 @@ def transform_load_tool(input_file_path:str, output_format:str, user_question:st
 
     response = llm.invoke(prompt).text
 
-    # Cleaning: the LLM often wraps its code in markdown fences like
-    #     ```python
-    #     import pandas as pd
-    #     ...
-    #     ```
-    # and those fences must be removed before we can run the code.
-    #
-    # BEFORE: we used `.strip('```').strip().lstrip('python')`. The catch is that
-    # `lstrip('python')` does NOT remove the word "python". It removes any of the
-    # letters p, y, t, h, o, n from the start, one by one, until it finds a
-    # different letter. So if the code started with `pd.read_csv(...)`, the "p"
-    # was removed and we ran `d.read_csv(...)`, which is broken code.
-    #
-    # NOW: the regex below removes only a real opening fence (``` or ```python)
-    # at the very start and a closing ``` at the very end. Everything else in the
-    # code is left exactly as the LLM wrote it.
+    # Strip only a leading ```/```python fence and a trailing ``` from the LLM output.
+    # (lstrip('python') was wrong: it strips characters, turning `pd.read_csv` into `d.read_csv`.)
     pandas_code = re.sub(r"^```(?:python)?\s*|\s*```$", "", response.strip())
 
     logger.info(f"[transform_load_tool] Generated pandas code:{block(pandas_code)}")

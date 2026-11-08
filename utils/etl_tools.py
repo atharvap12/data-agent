@@ -135,17 +135,8 @@ class ETLTools:
             str: The output of the executed code or an error message if execution fails.
         """
 
-        # BEFORE: we called `exec(code)` with no extra arguments. Inside a method,
-        # that runs the code with the method's own local variables, which mixes two
-        # scopes together. Imports in the generated code (e.g. `import pandas as pd`)
-        # then end up as local variables, and code inside a function, lambda or
-        # list comprehension can't see them. That causes errors like
-        # "NameError: name 'pd' is not defined" even though `pd` was imported.
-        #
-        # NOW: we pass an empty dict `{}` as the globals. The generated code then runs
-        # like its own small, separate script: everything it imports or defines
-        # is visible everywhere in that code. It also can't read or change
-        # variables from this method by accident.
+        # Fresh globals dict so the generated code runs like its own script: its imports are
+        # visible inside its functions/lambdas, and it can't touch this method's locals.
         try:
             exec(code, {})
             return "Code executed successfully."
