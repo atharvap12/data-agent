@@ -20,23 +20,31 @@ logger = get_logger("etl_agent")
 
 
 @tool
-def extract_load_tool(url:str, output_folder:str, format:str) -> str:
+def extract_load_tool(source:str, output_folder:str, format:str) -> str:
     """
-    This tool extracts the data from the API (url) and loads it into the
-    the desired location (output_folder).
+    This tool extracts the data from an API and loads it into the
+    desired location (output_folder).
 
     Args:
-        url (str): The API endpoint from which to extract data.
+        source (str): Either a named data source or a full API URL.
+            Named sources (use the name, the API key is added automatically):
+            - "pokemon": list of Pokemon (name, url). Mostly text, few rows.
+            - "marketstack": end-of-day stock prices for AAPL and MSFT with numeric
+              columns open, high, low, close, volume, adj_open, adj_high, adj_low,
+              adj_close, adj_volume, split_factor, dividend, plus symbol, name,
+              exchange and date.
+            If the user mentions stocks, stock prices, Marketstack, AAPL or MSFT,
+            use "marketstack". If the user mentions Pokemon or PokeAPI, use "pokemon".
         output_folder (str): The folder where the extracted data will be saved.
         format (str): The format in which to save the extracted data (csv, json, parquet).
-    
+
     Returns:
         str: A message indicating the success or failure of the operation.
 
     """
-    logger.info(f"[extract_load_tool] Extracting from {url} → folder '{output_folder}' as {format}")
+    logger.info(f"[extract_load_tool] Extracting from '{source}' → folder '{output_folder}' as {format}")
     etl_tools = ETLTools()
-    result = etl_tools.extract_load(url, output_folder, format)
+    result = etl_tools.extract_load(source, output_folder, format)
     logger.info(f"[extract_load_tool] Result: {result}")
     return result
 

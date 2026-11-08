@@ -63,10 +63,11 @@ def router_node(state:DataAgentSchema):
        - Extract data from an API endpoint (URL) and save it as a csv, json or parquet file.
        - Transform a data file (csv, json or parquet) with pandas, e.g. filter, clean,
          rename or aggregate it, and save the result to a folder.
-       Choose "etl" when the user mentions an API or URL, a file path or file format,
+       Choose "etl" when the user mentions an API or URL, a file path or file format, a named data source (pokemon, marketstack / stock prices),
        a folder to save to, or words like extract, load, transform, convert or save.
        Examples:
        - "Extract data from https://pokeapi.co/api/v2/pokemon and save it to data/extract as csv"
+       - "Extract the marketstack stock prices and save them to data/extract as csv"
        - "Filter data/extract/extracted_data.csv to bulbasaur only and save it in data/transform"
 
     How to decide:
