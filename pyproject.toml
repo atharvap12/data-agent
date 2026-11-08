@@ -1,7 +1,7 @@
 [project]
-name = "data-agent"
+name = "pipeql-agent"
 version = "0.1.0"
-description = "Add your description here"
+description = "PipeQL Agent: ask in plain English, AI agents build your ETL pipelines and query your data with SQL."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

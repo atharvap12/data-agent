@@ -9,16 +9,23 @@ from utils.database import DatabaseUtil
 from models.schema import AgentSchema, JudgeSchema
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph import StateGraph, START, END
+from utils.logger import get_logger, log_node, block
+
+logger = get_logger("sql_analyst")
 
 # -------------------------------------- AI Agent Code--------------------------------------
 
+@log_node(logger)
 def curate_ques(state: AgentSchema) -> AgentSchema: 
 
     user_question = state.user_ques # Bcz this is a Pydantic model object
+    logger.info(f"[curate_ques] User question: {user_question}")
 
     llm = pick_llm("simple")  # Pick the appropriate LLM based on the level of the question
 
     response = llm.invoke(f"Rewrite the following question to be clear and unambiguous for an SQL analyst. Return only the rewritten question, nothing else: {user_question}").text
+
+    logger.info(f"[curate_ques] Curated question: {response}")
 
     state.curated_ques = response
     state.messages = state.messages + [HumanMessage(content=f"{response}")]  # Append the curated question to the messages list
@@ -26,6 +33,7 @@ def curate_ques(state: AgentSchema) -> AgentSchema:
     return state 
 
 
+@log_node(logger)
 def prompt_query_context(state: AgentSchema) -> AgentSchema:
 
     curated_question = state.curated_ques
@@ -41,6 +49,7 @@ def prompt_query_context(state: AgentSchema) -> AgentSchema:
     obj = DatabaseUtil(conn_details)
 
     schema_info = obj.schema_details("public")  # Fetch schema details for the 'public' schema
+    logger.info(f"[prompt_query_context] Loaded DB schema details for 'public' ({len(schema_info)} characters)")
 
     # Constructing the prompt query for the agent to generate the SQL query
     prompt = f"""
@@ -61,12 +70,15 @@ def prompt_query_context(state: AgentSchema) -> AgentSchema:
     
     """    
 
+    logger.debug(f"[prompt_query_context] Full prompt:{block(prompt, limit=20000)}")
+
     state.prompt_query_context = prompt
 
     return state
 
 
 # Generate SQL Query Node
+@log_node(logger)
 def generate_sql(state: AgentSchema) -> AgentSchema:
 
     prompt = state.prompt_query_context
@@ -75,12 +87,15 @@ def generate_sql(state: AgentSchema) -> AgentSchema:
 
     generated_sql_query = llm.invoke(prompt).text  # Generate the SQL query using the LLM
 
+    logger.info(f"[generate_sql] Generated SQL:{block(generated_sql_query)}")
+
     state.generated_sql_query = generated_sql_query
 
     return state
 
 
 # Is safe Node
+@log_node(logger)
 def is_safe_sql(state: AgentSchema) -> AgentSchema:
 
     sql_query = state.generated_sql_query
@@ -99,6 +114,8 @@ def is_safe_sql(state: AgentSchema) -> AgentSchema:
     {sql_query}"""
 
     response = llm_judge.invoke(prompt).model_dump()  # Get the structured output as a dictionary
+    logger.info(f"[is_safe_sql] Judge verdict: safe = {response['answer']}")
+    logger.info(f"[is_safe_sql] Judge comments: {response['comments']}")
     state.is_safe = response['answer']
     state.comments = response['comments']
 
@@ -106,9 +123,11 @@ def is_safe_sql(state: AgentSchema) -> AgentSchema:
 
 
 # Canceled SQL Query Node
+@log_node(logger)
 def canceled_sql(state: AgentSchema) -> AgentSchema:
 
     comments = state.comments
+    logger.warning(f"[canceled_sql] SQL query was NOT executed because the judge marked it unsafe")
 
     state.final_answer = f"The generated SQL query was deemed unsafe to execute. The reason provided by the judge is: {comments}. Therefore, the SQL query will not be executed."
     state.messages = state.messages + [AIMessage(content=f"{state.final_answer}")]  # Append the final answer to the messages list  
@@ -117,6 +136,7 @@ def canceled_sql(state: AgentSchema) -> AgentSchema:
 
 
 # Execute SQL Query Node
+@log_node(logger)
 def execute_sql(state: AgentSchema) -> AgentSchema:
 
     sql_query = state.generated_sql_query
@@ -133,12 +153,18 @@ def execute_sql(state: AgentSchema) -> AgentSchema:
 
     execution_result = obj.execute_sql(sql_query)  # Execute the SQL query on the database
 
+    if execution_result is None:
+        logger.error("[execute_sql] Query failed, no result returned (see the 'database' log lines above)")
+    else:
+        logger.info(f"[execute_sql] Query result:{block(execution_result)}")
+
     state.sql_query_execution_result = execution_result
 
     return state
 
 
 # Represent the final answer Node
+@log_node(logger)
 def represent_final_answer(state: AgentSchema) -> AgentSchema:
 
     execution_result = state.sql_query_execution_result
@@ -157,6 +183,8 @@ def represent_final_answer(state: AgentSchema) -> AgentSchema:
     """
 
     llm_response = llm.invoke(prompt).text  # Get the final answer from the LLM
+
+    logger.info(f"[represent_final_answer] Final answer:{block(llm_response)}")
 
     state.final_answer = llm_response
     state.messages = state.messages + [AIMessage(content=f"{llm_response}")]  # Append the final answer to the messages list
@@ -188,9 +216,11 @@ def is_safe_sql_edge(state: AgentSchema) -> str:
     is_safe = state.is_safe
 
     if is_safe.lower() == "yes":
+        logger.info("[is_safe_sql_edge] Decision: query is safe → go to 'execute_sql'")
         return "execute_sql"
 
     else :
+        logger.warning("[is_safe_sql_edge] Decision: query is unsafe → go to 'canceled_sql'")
         return "canceled_sql"
 
 sql_agent_graph.add_conditional_edges("is_safe_sql", is_safe_sql_edge,

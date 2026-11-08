@@ -1,7 +1,10 @@
 import psycopg2
 import os
 from dotenv import load_dotenv
+from utils.logger import get_logger
 load_dotenv()
+
+logger = get_logger("database")
 
 
 class DatabaseUtil:
@@ -13,7 +16,7 @@ class DatabaseUtil:
             self.connection = psycopg2.connect(**db_config) 
 
         except Exception as e:
-            print(f"Error connecting to the database: {e}")
+            logger.error(f"Error connecting to the database: {e}")
             self.connection = None
 
     def schema_details(self,schema_name):
@@ -77,7 +80,7 @@ class DatabaseUtil:
                     schema_info_context = f"{schema_info_context}    {row}\n"
 
         except Exception as e:
-            print(f"Error fetching schema details: {e}")
+            logger.error(f"Error fetching schema details: {e}")
             schema_info_context = f"Error fetching schema details: {e}"
 
         finally:
@@ -158,7 +161,7 @@ class DatabaseUtil:
             connection.commit()
             return str(result)
         except Exception as e:
-            print(f"Error executing query: {e}")
+            logger.error(f"Error executing query: {e}")
             return None
         finally:
             if cursor:

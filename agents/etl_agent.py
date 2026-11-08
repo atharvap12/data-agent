@@ -11,6 +11,9 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.graph import StateGraph, START, END
 from langchain.tools import tool
 from langchain_anthropic import ChatAnthropic
+from utils.logger import get_logger, log_node, block
+
+logger = get_logger("etl_agent")
 
 
 #------------------------------------ AGENT TOOLS ------------------------------------#
@@ -31,8 +34,11 @@ def extract_load_tool(url:str, output_folder:str, format:str) -> str:
         str: A message indicating the success or failure of the operation.
 
     """
+    logger.info(f"[extract_load_tool] Extracting from {url} → folder '{output_folder}' as {format}")
     etl_tools = ETLTools()
-    return etl_tools.extract_load(url, output_folder, format)
+    result = etl_tools.extract_load(url, output_folder, format)
+    logger.info(f"[extract_load_tool] Result: {result}")
+    return result
 
 
 @tool
@@ -50,6 +56,9 @@ def transform_load_tool(input_file_path:str,output_folder:str,output_format:str,
         str: A message indicating the success or failure of the operation.
 
     """
+    logger.info(f"[transform_load_tool] Transforming '{input_file_path}' → folder '{output_folder}' as {output_format}")
+    logger.info(f"[transform_load_tool] Transformation asked for: {user_question}")
+
     etl_tools = ETLTools()
 
     top_3_rows = etl_tools.transform_load_context(input_file_path)
@@ -91,8 +100,15 @@ def transform_load_tool(input_file_path:str,output_folder:str,output_format:str,
     # code is left exactly as the LLM wrote it.
     pandas_code = re.sub(r"^```(?:python)?\s*|\s*```$", "", response.strip())
 
+    logger.info(f"[transform_load_tool] Generated pandas code:{block(pandas_code)}")
+
     # Execute the Pandas code
     results = etl_tools.execute_code(pandas_code)
+
+    if results.startswith("Failed"):
+        logger.error(f"[transform_load_tool] Code execution: {results}")
+    else:
+        logger.info(f"[transform_load_tool] Code execution: {results}")
 
     return f"The data is transformed and saved at {output_folder} in {output_format} format. \n\n Pandas Code Executed: \n {pandas_code} \n\n Execution Result: \n {results}"
 
@@ -106,6 +122,7 @@ llm_bind = llm.bind_tools(tools)
 
 # ---------------------------------------- AGENT GRAPH ---------------------------------------- #
 
+@log_node(logger)
 def llm_node(state:ETLAgentSchema):
 
     messages = state.messages
@@ -120,11 +137,19 @@ def llm_node(state:ETLAgentSchema):
 
     final_answer = llm_bind.invoke(prompt)
 
+    # Log what the LLM decided: call tool(s), or answer the user and finish
+    if final_answer.tool_calls:
+        for tool_call in final_answer.tool_calls:
+            logger.info(f"[llm_node] LLM decided to call tool '{tool_call['name']}' with args {tool_call['args']}")
+    else:
+        logger.info(f"[llm_node] LLM answered without calling a tool:{block(final_answer.text)}")
+
     state.messages = messages + [final_answer]
 
     return state
 
 
+@log_node(logger)
 def tool_node(state:ETLAgentSchema):
     """
     This node is responsible for invoking the appropriate tool based on the user's question and the context provided by the LLM.
@@ -139,6 +164,7 @@ def tool_node(state:ETLAgentSchema):
     for tool_call in tool_calls:
 
         tool = tools_by_name[tool_call['name']]
+        logger.info(f"[tool_node] Running tool '{tool_call['name']}'")
         observation = tool.invoke(tool_call['args'])
 
         tools_results.append(ToolMessage(content=observation, tool_call_id = tool_call['id']))
@@ -159,8 +185,10 @@ def is_tool_call(state:ETLAgentSchema):
     tool_calls = state.messages[-1].tool_calls
 
     if tool_calls:
+        logger.info(f"[is_tool_call] Decision: {len(tool_calls)} tool call(s) requested → go to 'tool_node'")
         return "tool_node"
     else:
+        logger.info("[is_tool_call] Decision: no tool calls → END (ETL agent is done)")
         return "end"
 
 etl_analyst_graph.add_conditional_edges(

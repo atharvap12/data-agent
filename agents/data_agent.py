@@ -12,6 +12,9 @@ from langchain.tools import tool
 from langchain_anthropic import ChatAnthropic
 from agents.etl_agent import etl_analyst
 from agents.sql_analyst import sql_analyst
+from utils.logger import get_logger, log_node
+
+logger = get_logger("data_agent")
 
 
 llm = pick_llm("simple")
@@ -22,34 +25,43 @@ llm_router = llm.with_structured_output(RouterSchema)
 # ---------------------------- DATA AGENT GRAPH ---------------------------- #
 
 
+@log_node(logger)
 def router_node(state:DataAgentSchema):
 
     message = state.messages[-1].content
+    logger.info(f"[router_node] User question: {message}")
 
     route_response_dict = llm_router.invoke(message).model_dump()
 
     route_response = route_response_dict['answer']
+    logger.info(f"[router_node] Router chose: '{route_response}'")
+    logger.info(f"[router_node] Router reason: {route_response_dict['comments']}")
 
     state.route_response = route_response
 
     return state
 
+@log_node(logger)
 def etl_node(state:DataAgentSchema):
 
     message = state.messages[-1].content
+    logger.info("[etl_node] Handing the question to the ETL agent")
 
     response = etl_analyst.invoke(
              {"messages":[HumanMessage(content=f"""
             {message}
     """)]}
         ) 
+    logger.info("[etl_node] ETL agent finished")
     state.messages = state.messages + [response["messages"][-1]]  # ETL agent's final message
 
     return state
 
+@log_node(logger)
 def sql_node(state:DataAgentSchema):
 
     message = state.messages[-1].content
+    logger.info("[sql_node] Handing the question to the SQL analyst")
 
     input_schema = {
         "messages": [],
@@ -64,6 +76,7 @@ def sql_node(state:DataAgentSchema):
     }
 
     response = sql_analyst.invoke(input_schema)
+    logger.info("[sql_node] SQL analyst finished")
 
     state.messages = state.messages + [AIMessage(content=response["final_answer"])]
 
@@ -82,10 +95,13 @@ data_agent_graph.add_edge(START, "router_node")
 
 def route_edge(state: DataAgentSchema) -> str:
     if state.route_response == "sql":
+        logger.info("[route_edge] Decision: go to 'sql_node'")
         return "sql_node"
     elif state.route_response == "etl":
+        logger.info("[route_edge] Decision: go to 'etl_node'")
         return "etl_node"
     else:
+        logger.error(f"[route_edge] Invalid route response: {state.route_response}")
         raise ValueError(f"Invalid route response: {state.route_response}")
 
 
